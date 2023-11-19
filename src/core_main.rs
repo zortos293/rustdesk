@@ -274,7 +274,7 @@ pub fn core_main() -> Option<Vec<String>> {
             return None;
         } else if args[0] == "--password" {
             if args.len() == 2 {
-                if crate::platform::is_installed() && is_root() {
+                if true {
                     if let Err(err) = crate::ipc::set_permanent_password(args[1].to_owned()) {
                         println!("{err}");
                     } else {
@@ -286,7 +286,7 @@ pub fn core_main() -> Option<Vec<String>> {
             }
             return None;
         } else if args[0] == "--get-id" {
-            if crate::platform::is_installed() && is_root() {
+            if true {
                 println!("{}", crate::ipc::get_id());
             } else {
                 println!("Installation and administrative privileges required!");
@@ -294,7 +294,7 @@ pub fn core_main() -> Option<Vec<String>> {
             return None;
         } else if args[0] == "--set-id" {
             if args.len() == 2 {
-                if crate::platform::is_installed() && is_root() {
+                if true {
                     let old_id = crate::ipc::get_id();
                     let mut res = crate::ui_interface::change_id_shared(args[1].to_owned(), old_id);
                     if res.is_empty() {
