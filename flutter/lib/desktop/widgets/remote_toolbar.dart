@@ -730,7 +730,7 @@ class _MonitorMenu extends StatelessWidget {
                       ],
                     ),
                   ),
-            onPressed: () => onPressed(i, pi),
+            onPressed: () => onPressed(i, pi, isMulti),
           );
         });
 
@@ -810,14 +810,17 @@ class _MonitorMenu extends StatelessWidget {
     );
   }
 
-  onPressed(int i, PeerInfo pi) {
-    _menuDismissCallback(ffi);
+  onPressed(int i, PeerInfo pi, bool isMulti) {
+    if (!isMulti) {
+      // If show monitors in toolbar(`buildMultiMonitorMenu()`), then the menu will dismiss automatically.
+      _menuDismissCallback(ffi);
+    }
     RxInt display = CurrentDisplayState.find(id);
     if (display.value != i) {
       if (isChooseDisplayToOpenInNewWindow(pi, ffi.sessionId)) {
         openMonitorInNewTabOrWindow(i, ffi.id, pi);
       } else {
-        openMonitorInTheSameTab(i, ffi, pi);
+        openMonitorInTheSameTab(i, ffi, pi, updateCursorPos: !isMulti);
       }
     }
   }
@@ -1585,7 +1588,7 @@ class _KeyboardMenu extends StatelessWidget {
     // If use flutter to grab keys, we can only use one mode.
     // Map mode and Legacy mode, at least one of them is supported.
     String? modeOnly;
-    if (stateGlobal.grabKeyboard) {
+    if (isInputSourceFlutter) {
       if (bind.sessionIsKeyboardModeSupported(
           sessionId: ffi.sessionId, mode: kKeyMapMode)) {
         modeOnly = kKeyMapMode;
@@ -1603,6 +1606,7 @@ class _KeyboardMenu extends StatelessWidget {
         menuChildren: [
           keyboardMode(modeOnly),
           localKeyboardType(),
+          inputSource(),
           Divider(),
           viewMode(),
           Divider(),
@@ -1627,6 +1631,7 @@ class _KeyboardMenu extends StatelessWidget {
         if (value == null) return;
         await bind.sessionSetKeyboardMode(
             sessionId: ffi.sessionId, value: value);
+        await ffi.inputModel.updateKeyboardMode();
       }
 
       for (InputModeMenu mode in modes) {
@@ -1676,6 +1681,41 @@ class _KeyboardMenu extends StatelessWidget {
         )
       ],
     );
+  }
+
+  inputSource() {
+    final supportedInputSource = bind.mainSupportedInputSource();
+    if (supportedInputSource.isEmpty) return Offstage();
+    late final List<dynamic> supportedInputSourceList;
+    try {
+      supportedInputSourceList = jsonDecode(supportedInputSource);
+    } catch (e) {
+      debugPrint('Failed to decode $supportedInputSource, $e');
+      return;
+    }
+    if (supportedInputSourceList.length < 2) return Offstage();
+    final inputSource = stateGlobal.getInputSource();
+    final enabled = !ffi.ffiModel.viewOnly;
+    final children = <Widget>[Divider()];
+    children.addAll(supportedInputSourceList.map((e) {
+      final d = e as List<dynamic>;
+      return RdoMenuButton<String>(
+        child: Text(translate(d[1] as String)),
+        value: d[0] as String,
+        groupValue: inputSource,
+        onChanged: enabled
+            ? (v) async {
+                if (v != null) {
+                  await stateGlobal.setInputSource(ffi.sessionId, v);
+                  await ffi.ffiModel.checkDesktopKeyboardMode();
+                  await ffi.inputModel.updateKeyboardMode();
+                }
+              }
+            : null,
+        ffi: ffi,
+      );
+    }));
+    return Column(children: children);
   }
 
   viewMode() {
